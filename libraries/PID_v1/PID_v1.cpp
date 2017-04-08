@@ -20,23 +20,24 @@
 PID::PID(double* Input, double* Output, double* Setpoint,
         double Kp, double Ki, double Kd, int ControllerDirection)
 {
-	
     myOutput = Output;
     myInput = Input;
     mySetpoint = Setpoint;
-	inAuto = false;
-	
-	PID::SetOutputLimits(0, 255);				//default output limit corresponds to 
-												//the arduino pwm limits
+    inAuto = false;
+    
+    PID::SetOutputLimits(0, 255);               //default output limit corresponds to 
+                                                //the arduino pwm limits
 
-    SampleTime = 100;							//default Controller Sample Time is 0.1 seconds
+    SampleTime = 100;                           //default Controller Sample Time is 0.1 seconds
 
     PID::SetControllerDirection(ControllerDirection);
     PID::SetTunings(Kp, Ki, Kd);
 
-    lastTime = millis()-SampleTime;				
+    lastTime = millis() - SampleTime;
+    lastTicks = 0;
+    wheelParam = 0;
 }
- 
+
  
 /* Compute() **********************************************************************
  *     This, as they say, is where the magic happens.  this function should be called
@@ -46,32 +47,104 @@ PID::PID(double* Input, double* Output, double* Setpoint,
  **********************************************************************************/ 
 bool PID::Compute()
 {
-   if(!inAuto) return false;
-   unsigned long now = millis();
-   unsigned long timeChange = (now - lastTime);
-   if(timeChange>=SampleTime)
-   {
-      /*Compute all the working error variables*/
-	  double input = *myInput;
-      double error = *mySetpoint - input;
-      ITerm+= (ki * error);
-      if(ITerm > outMax) ITerm= outMax;
-      else if(ITerm < outMin) ITerm= outMin;
-      double dInput = (input - lastInput);
- 
-      /*Compute PID Output*/
-      double output = kp * error + ITerm- kd * dInput;
-      
-	  if(output > outMax) output = outMax;
-      else if(output < outMin) output = outMin;
-	  *myOutput = output;
-	  
-      /*Remember some variables for next time*/
-      lastInput = input;
-      lastTime = now;
-	  return true;
-   }
-   else return false;
+  if(!inAuto) return false;
+  unsigned long now = millis();
+  unsigned long timeChange = (now - lastTime);
+  if(timeChange >= SampleTime)
+  {
+    /*Compute all the working error variables*/
+    double input = *myInput;
+    double error = *mySetpoint - input;
+    ITerm += (ki * error);
+    if(ITerm > outMax) ITerm = outMax;
+    else if(ITerm < outMin) ITerm = outMin;
+    double dInput = (input - lastInput);
+
+    /*Compute PID Output*/
+    double output = (kp * error) + ITerm + (kd * dInput);
+    
+    if(output > outMax) output = outMax;
+    else if(output < outMin) output = outMin;
+    *myOutput = output;
+    
+    /*Remember some variables for next time*/
+    lastInput = input;
+    lastTime = now;
+    return true;
+  }
+  else return false;
+}
+
+bool PID::ComputeAngle()
+{
+  if(!inAuto) return false;
+  unsigned long now = millis();
+  unsigned long timeChange = (now - lastTime);
+  if(timeChange >= SampleTime)
+  {
+    /*Compute all the working error variables*/
+    double input = *myInput;
+    double error = *mySetpoint - input;
+    if(error < 180) error += 360;
+    if(error > 180) error -= 360;
+
+    ITerm += (ki * error);
+    if(ITerm > outMax) ITerm = outMax;
+    else if(ITerm < outMin) ITerm = outMin;
+    double dInput = (input - lastInput);
+
+    /*Compute PID Output*/
+    double output = (kp * error) + ITerm + (kd * dInput);
+    
+    if(output > outMax) output = outMax;
+    else if(output < outMin) output = outMin;
+    *myOutput = output;
+    
+    /*Remember some variables for next time*/
+    lastInput = input;
+    lastTime = now;
+    return true;
+  }
+  else return false;
+}
+
+bool PID::ComputeVelocity(long ticks)
+{
+  if(!inAuto) return false;
+  unsigned long now = millis();
+  unsigned long timeChange = (now - lastTime);
+  if(timeChange >= SampleTime)
+  {
+    // calculate speed
+    *myInput = (double)(ticks - lastTicks) * wheelParam / (double)timeChange;
+
+    /*Compute all the working error variables*/
+    double input = *myInput;
+    double error = *mySetpoint - input;
+    ITerm += (ki * error);
+    if(ITerm > outMax) ITerm = outMax;
+    else if(ITerm < outMin) ITerm = outMin;
+    double dInput = (input - lastInput);
+
+    /*Compute PID Output*/
+    double output = (kp * error) + ITerm - (kd * dInput);
+    
+    if(output > outMax) output = outMax;
+    else if(output < outMin) output = outMin;
+    *myOutput = output;
+    
+    /*Remember some variables for next time*/
+    lastTicks = ticks;
+    lastInput = input;
+    lastTime = now;
+    return true;
+  }
+  else return false;
+}
+
+void PID::SetWheelParam(double param)
+{
+  wheelParam = param;
 }
 
 
@@ -91,7 +164,7 @@ void PID::SetTunings(double Kp, double Ki, double Kd)
    ki = Ki * SampleTimeInSec;
    kd = Kd / SampleTimeInSec;
  
-  if(controllerDirection ==REVERSE)
+  if(controllerDirection == REVERSE)
    {
       kp = (0 - kp);
       ki = (0 - ki);
@@ -100,7 +173,7 @@ void PID::SetTunings(double Kp, double Ki, double Kd)
 }
   
 /* SetSampleTime(...) *********************************************************
- * sets the period, in Milliseconds, at which the calculation is performed	
+ * sets the period, in Milliseconds, at which the calculation is performed  
  ******************************************************************************/
 void PID::SetSampleTime(int NewSampleTime)
 {
@@ -130,11 +203,11 @@ void PID::SetOutputLimits(double Min, double Max)
  
    if(inAuto)
    {
-	   if(*myOutput > outMax) *myOutput = outMax;
-	   else if(*myOutput < outMin) *myOutput = outMin;
-	 
-	   if(ITerm > outMax) ITerm= outMax;
-	   else if(ITerm < outMin) ITerm= outMin;
+       if(*myOutput > outMax) *myOutput = outMax;
+       else if(*myOutput < outMin) *myOutput = outMin;
+     
+       if(ITerm > outMax) ITerm= outMax;
+       else if(ITerm < outMin) ITerm= outMin;
    }
 }
 
@@ -154,7 +227,7 @@ void PID::SetMode(int Mode)
 }
  
 /* Initialize()****************************************************************
- *	does all the things that need to happen to ensure a bumpless transfer
+ *  does all the things that need to happen to ensure a bumpless transfer
  *  from manual to automatic mode.
  ******************************************************************************/ 
 void PID::Initialize()
@@ -175,7 +248,7 @@ void PID::SetControllerDirection(int Direction)
 {
    if(inAuto && Direction !=controllerDirection)
    {
-	  kp = (0 - kp);
+      kp = (0 - kp);
       ki = (0 - ki);
       kd = (0 - kd);
    }   

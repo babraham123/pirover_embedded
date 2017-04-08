@@ -1,15 +1,15 @@
 
 double Input;
-double K = 1000.0 / 99.4; // (ms/s) * ticksPerMeter
+double K = 1000.0 / (20.0 / (0.065 * 3.14159)); // (ms/s) * ticksPerMeter
 
-const unsigned long serialPing = 500; // ping interval in ms
 unsigned long lastCompute = 0;
 int Encoder = 2; 
-volatile unsigned long Counter = 0;
+int Motor = 10;
+volatile unsigned long counter = 0;
 
 void count() 
 {
-  Counter++;
+  counter++;
 }
 
 void setup()
@@ -22,6 +22,9 @@ void setup()
     pinMode(Encoder, INPUT);
     attachInterrupt(digitalPinToInterrupt(Encoder), count, RISING);
     lastCompute = millis();
+
+    pinMode(Motor, OUTPUT);
+    analogWrite(Motor, 0); // [0, 255]
 }
 
 void loop()
@@ -31,10 +34,19 @@ void loop()
     unsigned long now = millis();
     double dt = double(now - lastCompute);
     lastCompute = now;
-    temp = Counter;
-    Counter = 0;
+    temp = counter;
+    counter = 0;
     Input = K * double(temp) / dt; // m/s
 
     Serial.print(Input);
+
+    if (Serial.available() > 0) { // check for new commands
+        char inByte = (char)Serial.read();
+        int val = Serial.parseInt();
+
+        if(inByte == 's') {
+            analogWrite(Motor, val);
+        }
+    }
     delay(200);
 }

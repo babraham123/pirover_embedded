@@ -2,36 +2,20 @@
 #include <PID_v1.h>
 
 // Tuning parameters
-float Kp = 0;
-float Ki = 10;
-float Kd = 0;
-double Input, Output;
-double Setpoint = 0.1;
-PID mPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
-
-double K = 1000.0 / 99.4; // (ms/s) * ticksPerMeter
+double mInput = 0.0, mOutput = 0.0, mSetpoint = 1.0;
+PID mPID(&mInput, &mOutput, &mSetpoint, 10.0, 0.0, 2.0, DIRECT);
+                                      // Kp, Ki, Kd
 
 const unsigned long serialPing = 500; // ping interval in ms
-unsigned long now = 0;
 unsigned long lastMessage = 0;
-unsigned long lastCompute = 0;
-#define BUFFER_SIZE 8 // total message size = BUFFER_SIZE + 2
 
-int Motor = 10; 
-int Encoder = 2; 
-volatile unsigned long Counter = 0;
+#define MOTOR 10 
+#define ENCODER 2 
+volatile long counter = 0;
 
 void count() 
 {
-  Counter++;
-}
-
-void establishContact() {
-  while (Serial.available() <= 0) {
-    Serial.println('A');
-    delay(300);
-  }
-  int a = Serial.read();
+  counter++;
 }
 
 void setup()
@@ -41,73 +25,54 @@ void setup()
         ; // wait for serial port to connect. Needed for native USB port only
     }
 
+    pinMode(MOTOR, OUTPUT);
+    pinMode(ENCODER, INPUT);
+    attachInterrupt(digitalPinToInterrupt(ENCODER), count, RISING);
+
+    unsigned long now = millis();
+    lastMessage = now;
+
+    double K = 1000.0 / (20 / (0.065 * 3.14159)); 
+                  // (ms/s) / (ticksPerMeter)
+                  // ticksPerMeter = ticksPerRev / MetersPerRev
+    mPID.SetOutputLimits(0, 255);
+    mPID.SetWheelParam(K);
+    mPID.SetSampleTime(50);
     mPID.SetMode(AUTOMATIC);
-    pinMode(Motor, OUTPUT);
-    pinMode(Encoder, INPUT);
-    attachInterrupt(digitalPinToInterrupt(Encoder), count, RISING);
-
-    lastCompute = millis();
-    lastMessage = lastCompute;
-
-    // establishContact();
+    delay(10);
 }
 
 void loop()
 {
-    // velocity calculation
-    int temp;
-    now = millis();
-    double dt = (double)(now - lastCompute);
-    lastCompute = now;
-    temp = Counter;
-    Counter = 0;
-    
-    Input = K * ((double)temp) / dt; // m/s
+    mPID.ComputeVelocity(counter);
+    analogWrite(MOTOR, mOutput);
 
-    mPID.Compute();
-    
-    // Output = map(Output, 0, 5, 0, 255); // map to right scale
-    analogWrite(Motor, Output);
-
+    unsigned long now = millis();
     if((now - lastMessage) > serialPing) {
-        // char buffer[BUFFER_SIZE];
-        // snprintf(buffer, BUFFER_SIZE, "%f", Input);
-        // Serial.print(buffer);
-        // Serial.print(' ');
-        // snprintf(buffer, BUFFER_SIZE, "%f", Output);
-        // Serial.println(buffer);
-
-        // Serial.write('s');
-        // Serial.write(Input);
-
-        Serial.print(Input);
+        Serial.print(mInput);
         Serial.print(" ");
-        Serial.println(Output);
+        Serial.println(mOutput);
         
         lastMessage = now;
     }
 
     if (Serial.available() > 0) { // check for new commands
-        char inByte = (char)Serial.read();
-        float val = Serial.parseFloat();
+        char inByte = char(Serial.read());
+        double val = double(Serial.parseFloat());
 
         switch(inByte) {
         case 's' :
-            Setpoint = (double)val;
+            mSetpoint = val;
             break;
         case 'p' :
-            Kp = val;
-            mPID.SetTunings(Kp, Ki, Kd);
+            mPID.SetTunings(val, mPID.GetKi(), mPID.GetKd());
             break;
         case 'd' :
-            Kd = val;
-            mPID.SetTunings(Kp, Ki, Kd);
+            mPID.SetTunings(mPID.GetKp(), mPID.GetKi(), val);
             break;
         case 'i' :
-            Ki = val;
-            mPID.SetTunings(Kp, Ki, Kd);
+            mPID.SetTunings(mPID.GetKp(), val, mPID.GetKd());
             break;
         }
-        // thirdSensor = map(digitalRead(2), 0, 1, 0, 255);
     }
 }

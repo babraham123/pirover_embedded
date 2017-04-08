@@ -4,26 +4,15 @@
 #include <std_msgs/Float32.h>
 #include <PID_v1.h>
 
-// Tuning parameters
-float rKp = 0;
-float rKi = 10;
-float rKd = 0;
-float lKp = 0;
-float lKi = 10;
-float lKd = 0;
-double rInput, rOutput, lInput, lOutput;
-double rSetpoint = 0;
-double lSetpoint = 0;
-PID rPID(&rInput, &rOutput, &rSetpoint, rKp, rKi, rKd, DIRECT);
-PID lPID(&lInput, &lOutput, &lSetpoint, lKp, lKi, lKd, DIRECT);
-
-const double K = 1000.0 / 99.4; // (ms/s) / ticksPerMeter
-            // ticksPerMeter = ticksPerRev / MetersPerRev
+double rInput = 0.0, rOutput = 0.0, lInput = 0.0, lOutput = 0.0;
+double rSetpoint = 0.0;
+double lSetpoint = 0.0;
+PID rPID(&rInput, &rOutput, &rSetpoint, 10.0, 0.0, 2.0, DIRECT);
+PID lPID(&lInput, &lOutput, &lSetpoint, 10.0, 0.0, 2.0, DIRECT);
 
 // const int sampleRate = 1;
 const unsigned long serialPing = 500; // ping interval in ms
 unsigned long lastMessage = 0;
-unsigned long lastCompute = 0;
 
 int rMotor = 10; 
 int lMotor = 11; 
@@ -51,8 +40,8 @@ std_msgs::Int16 encoder_msg;
 ros::Publisher pub_r("rwheel", &encoder_msg);
 ros::Publisher pub_l("lwheel", &encoder_msg);
 
-ros::Subscriber<std_msgs::UInt16> sub_r("rwheel_vtarget", &cmd_vel_r_cb);
-ros::Subscriber<std_msgs::UInt16> sub_l("lwheel_vtarget", &cmd_vel_l_cb);
+ros::Subscriber<std_msgs::Int16> sub_r("rwheel_vtarget", &cmd_vel_r_cb);
+ros::Subscriber<std_msgs::Int16> sub_l("lwheel_vtarget", &cmd_vel_l_cb);
 
 void count_r() 
 {
@@ -72,18 +61,25 @@ void setup()
     while (!Serial) {
         ; // wait for serial port to connect. Needed for native USB port only
     }
+
+    double K = 1000.0 / (20 / (0.065 * 3.14159)); 
+                  // (ms/s) / (ticksPerMeter)
+                  // ticksPerMeter = ticksPerRev / MetersPerRev
+    rPID.SetOutputLimits(0, 255);
+    rPID.SetSampleTime(50);
+    rPID.SetWheelParam(K);
     rPID.SetMode(AUTOMATIC);
-    // rPID.SetSampleTime(sampleRate);
+    lPID.SetOutputLimits(0, 255);
+    lPID.SetSampleTime(50);
+    lPID.SetWheelParam(K);
     lPID.SetMode(AUTOMATIC);
-    // lPID.SetSampleTime(sampleRate);
 
     pinMode(rEncoder, INPUT);
     attachInterrupt(digitalPinToInterrupt(rEncoder), count_r, RISING);
     pinMode(lEncoder, INPUT);
     attachInterrupt(digitalPinToInterrupt(lEncoder), count_l, RISING);
 
-    lastCompute = millis();
-    lastMessage = lastCompute;
+    lastMessage = millis();
 
     pinMode(rMotor, OUTPUT);
     pinMode(lMotor, OUTPUT);
@@ -93,36 +89,22 @@ void setup()
     nh.advertise(pub_l);
     nh.subscribe(sub_r);
     nh.subscribe(sub_l);
+    delay(10);
 }
 
 void loop()
 {
-    // velocity calculation
-    int rtemp, ltemp;
-    unsigned long now = millis();
-    double dt = (double)(now - lastCompute);
-    lastCompute = now;
-    rtemp = rCounter;
-    rCounter = 0;
-    ltemp = lCounter;
-    lCounter = 0;
-
-    rInput = K * ((double)rtemp) / dt; // m/s
-    lInput = K * ((double)ltemp) / dt;
-    rCounterTotal += rtemp;
-    lCounterTotal += ltemp;
+    rPID.ComputeVelocity(rCounter);
+    lPID.ComputeVelocity(lCounter);
     
-    rPID.Compute();
-    lPID.Compute();
-    
-    // rOutput = map(rOutput, 0, 5, 0, 255); // map to right scale
     analogWrite(rMotor, rOutput);
     analogWrite(lMotor, lOutput);
 
+    unsigned long now = millis();
     if((now - lastMessage) > serialPing) { // send odometry
-        encoder_msg.data = rCounterTotal;
+        encoder_msg.data = rCounter;
         pub_r.publish(&encoder_msg);
-        encoder_msg.data = lCounterTotal;
+        encoder_msg.data = lCounter;
         pub_l.publish(&encoder_msg);
         
         lastMessage = now;
@@ -133,11 +115,6 @@ void loop()
 
     // roscore
     // rostopic pub rwheel_vtarget std_msgs/Float32  <speed>
-
-    // myPID.SetOutputLimits(0, 255);
-
-    // adaptive tuning
-    // myPID.SetTunings(aggKp, aggKi, aggKd);
 
     // noInterrupts();
     // // critical, time-sensitive code here

@@ -10,19 +10,16 @@ double lSetpoint = 0.0;
 PID rPID(&rInput, &rOutput, &rSetpoint, 10.0, 0.0, 2.0, DIRECT);
 PID lPID(&lInput, &lOutput, &lSetpoint, 10.0, 0.0, 2.0, DIRECT);
 
-// const int sampleRate = 1;
 const unsigned long serialPing = 500; // ping interval in ms
 unsigned long lastMessage = 0;
 
-int rMotor = 10; 
-int lMotor = 11; 
+#define rMotor 10
+#define lMotor 11
 
-int rEncoder = 2; 
-int lEncoder = 3; 
+#define rEncoder 2
+#define lEncoder 3
 volatile int rCounter = 0;
 volatile int lCounter = 0;
-int rCounterTotal = 0;
-int lCounterTotal = 0;
 
 void cmd_vel_r_cb(const std_msgs::Float32& cmd_msg)
 {

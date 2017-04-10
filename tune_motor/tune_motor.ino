@@ -3,7 +3,7 @@
 
 // Tuning parameters
 double mInput = 0.0, mOutput = 0.0, mSetpoint = 1.0;
-PID mPID(&mInput, &mOutput, &mSetpoint, 10.0, 0.0, 2.0, DIRECT);
+PID mPID(&mInput, &mOutput, &mSetpoint, 80.0, 0.0, 0.75, DIRECT);
                                       // Kp, Ki, Kd
 
 const unsigned long serialPing = 500; // ping interval in ms

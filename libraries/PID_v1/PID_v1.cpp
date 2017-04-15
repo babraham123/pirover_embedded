@@ -35,7 +35,7 @@ PID::PID(double* Input, double* Output, double* Setpoint,
 
     lastTime = millis() - SampleTime;
     lastTicks = 0;
-    wheelParam = 0;
+    wheelParam = 0.0;
 }
 
  
@@ -61,7 +61,7 @@ bool PID::Compute()
     double dInput = (input - lastInput);
 
     /*Compute PID Output*/
-    double output = (kp * error) + ITerm + (kd * dInput);
+    double output = (kp * error) + ITerm - (kd * dInput);
     
     if(output > outMax) output = outMax;
     else if(output < outMin) output = outMin;
@@ -94,7 +94,7 @@ bool PID::ComputeAngle()
     double dInput = (input - lastInput);
 
     /*Compute PID Output*/
-    double output = (kp * error) + ITerm + (kd * dInput);
+    double output = (kp * error) + ITerm - (kd * dInput);
     
     if(output > outMax) output = outMax;
     else if(output < outMin) output = outMin;
@@ -116,7 +116,7 @@ bool PID::ComputeVelocity(long ticks)
   if(timeChange >= SampleTime)
   {
     // calculate speed
-    *myInput = (double)(ticks - lastTicks) * wheelParam / (double)timeChange;
+    *myInput = double(ticks - lastTicks) * wheelParam / double(timeChange);
 
     /*Compute all the working error variables*/
     double input = *myInput;

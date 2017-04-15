@@ -7,14 +7,14 @@
 double rInput = 0.0, rOutput = 0.0, lInput = 0.0, lOutput = 0.0;
 double rSetpoint = 0.0;
 double lSetpoint = 0.0;
-PID rPID(&rInput, &rOutput, &rSetpoint, 10.0, 0.0, 2.0, DIRECT);
-PID lPID(&lInput, &lOutput, &lSetpoint, 10.0, 0.0, 2.0, DIRECT);
+PID rPID(&rInput, &rOutput, &rSetpoint, 30.0, 2.0, 0.0, DIRECT);
+PID lPID(&lInput, &lOutput, &lSetpoint, 30.0, 2.0, 0.0, DIRECT);
 
-const unsigned long serialPing = 500; // ping interval in ms
+#define serialPing 100 // ping interval in ms
 unsigned long lastMessage = 0;
 
-#define rMotor 10
-#define lMotor 11
+#define rMotor 11
+#define lMotor 10
 
 #define rEncoder 2
 #define lEncoder 3
@@ -59,15 +59,15 @@ void setup()
         ; // wait for serial port to connect. Needed for native USB port only
     }
 
-    double K = 1000.0 / (20 / (0.065 * 3.14159)); 
+    double K = 1000.0 / (20.0 / (0.065 * 3.14159)); 
                   // (ms/s) / (ticksPerMeter)
                   // ticksPerMeter = ticksPerRev / MetersPerRev
     rPID.SetOutputLimits(0, 255);
-    rPID.SetSampleTime(50);
+    rPID.SetSampleTime(10);
     rPID.SetWheelParam(K);
     rPID.SetMode(AUTOMATIC);
     lPID.SetOutputLimits(0, 255);
-    lPID.SetSampleTime(50);
+    lPID.SetSampleTime(10);
     lPID.SetWheelParam(K);
     lPID.SetMode(AUTOMATIC);
 

@@ -2,15 +2,15 @@
 #include <PID_v1.h>
 
 // Tuning parameters
-double mInput = 0.0, mOutput = 0.0, mSetpoint = 0.5;
-PID mPID(&mInput, &mOutput, &mSetpoint, 80.0, 0.0, 0.75, DIRECT);
+double mInput = 0.0, mOutput = 0.0, mSetpoint = 1.0;
+PID mPID(&mInput, &mOutput, &mSetpoint, 30.0, 0.0, 0.0, DIRECT);
                                       // Kp, Ki, Kd
 
-const unsigned long serialPing = 500; // ping interval in ms
+const unsigned long serialPing = 50; // ping interval in ms
 unsigned long lastMessage = 0;
 
-#define MOTOR 10 
-#define ENCODER 2 
+#define MOTOR 11 // 10 
+#define ENCODER 2 // 3 
 volatile long counter = 0;
 
 void count() 
@@ -32,12 +32,12 @@ void setup()
     unsigned long now = millis();
     lastMessage = now;
 
-    double K = 1000.0 / (20 / (0.065 * 3.14159)); 
+    double K = 1000.0 / (20.0 / (0.065 * 3.14159)); 
                   // (ms/s) / (ticksPerMeter)
                   // ticksPerMeter = ticksPerRev / MetersPerRev
     mPID.SetOutputLimits(0, 255);
     mPID.SetWheelParam(K);
-    mPID.SetSampleTime(50);
+    mPID.SetSampleTime(10);
     mPID.SetMode(AUTOMATIC);
     delay(10);
 }

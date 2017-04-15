@@ -2,7 +2,7 @@
 #include <PID_v1.h>
 
 // Tuning parameters
-double mInput = 0.0, mOutput = 0.0, mSetpoint = 1.0;
+double mInput = 0.0, mOutput = 0.0, mSetpoint = 0.5;
 PID mPID(&mInput, &mOutput, &mSetpoint, 80.0, 0.0, 0.75, DIRECT);
                                       // Kp, Ki, Kd
 

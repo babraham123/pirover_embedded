@@ -7,14 +7,14 @@
 double rInput = 0.0, rOutput = 0.0, lInput = 0.0, lOutput = 0.0;
 double rSetpoint = 0.0;
 double lSetpoint = 0.0;
-PID rPID(&rInput, &rOutput, &rSetpoint, 30.0, 2.0, 0.0, DIRECT);
-PID lPID(&lInput, &lOutput, &lSetpoint, 30.0, 2.0, 0.0, DIRECT);
+PID rPID(&rInput, &rOutput, &rSetpoint, 10.0, 0.0, 2.0, DIRECT);
+PID lPID(&lInput, &lOutput, &lSetpoint, 10.0, 0.0, 2.0, DIRECT);
 
-#define serialPing 100 // ping interval in ms
+const unsigned long serialPing = 500; // ping interval in ms
 unsigned long lastMessage = 0;
 
-#define rMotor 11
-#define lMotor 10
+#define rMotor 10
+#define lMotor 11
 
 #define rEncoder 2
 #define lEncoder 3
@@ -37,8 +37,8 @@ std_msgs::Int16 encoder_msg;
 ros::Publisher pub_r("rwheel", &encoder_msg);
 ros::Publisher pub_l("lwheel", &encoder_msg);
 
-ros::Subscriber<std_msgs::Int16> sub_r("rwheel_vtarget", &cmd_vel_r_cb);
-ros::Subscriber<std_msgs::Int16> sub_l("lwheel_vtarget", &cmd_vel_l_cb);
+ros::Subscriber<std_msgs::Float32> sub_r("rwheel_vtarget", &cmd_vel_r_cb);
+ros::Subscriber<std_msgs::Float32> sub_l("lwheel_vtarget", &cmd_vel_l_cb);
 
 void count_r() 
 {
@@ -50,8 +50,6 @@ void count_l()
   lCounter++;
 }
 
-// TODO: switch to Int16 / int
-
 void setup()
 {
     Serial.begin(9600);
@@ -59,15 +57,15 @@ void setup()
         ; // wait for serial port to connect. Needed for native USB port only
     }
 
-    double K = 1000.0 / (20.0 / (0.065 * 3.14159)); 
+    double K = 1000.0 / (20 / (0.065 * 3.14159)); 
                   // (ms/s) / (ticksPerMeter)
                   // ticksPerMeter = ticksPerRev / MetersPerRev
     rPID.SetOutputLimits(0, 255);
-    rPID.SetSampleTime(10);
+    rPID.SetSampleTime(50);
     rPID.SetWheelParam(K);
     rPID.SetMode(AUTOMATIC);
     lPID.SetOutputLimits(0, 255);
-    lPID.SetSampleTime(10);
+    lPID.SetSampleTime(50);
     lPID.SetWheelParam(K);
     lPID.SetMode(AUTOMATIC);
 
